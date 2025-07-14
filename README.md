@@ -45,30 +45,7 @@
 | 👮 Digital forensics case | Extract historical registry or config files |
 | 🛠️ Internal audits | Validate unauthorized changes or tampering |
 
----
 
-## 📸 Screenshots
-
-<!-- Add your screenshots here once uploaded -->
-<p align="center">
-  <img src="assets/load_e01.png" width="700"/>
-  <br/>
-  <em>Figure 1: Load E01 Forensic Image</em>
-</p>
-
-<p align="center">
-  <img src="assets/vsc_list.png" width="700"/>
-  <br/>
-  <em>Figure 2: Detected Shadow Copies</em>
-</p>
-
-<p align="center">
-  <img src="assets/browser.png" width="700"/>
-  <br/>
-  <em>Figure 3: File System Explorer</em>
-</p>
-
----
 
 ## 🛠️ Installation
 
