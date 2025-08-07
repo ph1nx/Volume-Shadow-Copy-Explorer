@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>🧭 Volume Shadow Copy Explorer (VSCEExplorer)</h1>
+  <h1>🧭 Volume Shadow Copy Explorer (VSCExplorer)</h1>
   <h3>Explore Volume Shadow Copies (VSCs) from E01 Forensic Images</h3>
 
   <p>
