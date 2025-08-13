@@ -62,4 +62,10 @@ git clone https://github.com/sujayadkesar/vscexplorer.git
 cd vscexplorer
 pip install -r requirements.txt
 python vscexplorer.py
+```
 
+
+## 🙌 Acknowledgments
+
+- [Akhil Dara](https://www.linkedin.com/in/akhil-dara/)
+- [Jnana Ramakrishna](https://www.linkedin.com/in/jnana-ramakrishna/)
