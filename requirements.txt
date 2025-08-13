@@ -1,0 +1,3 @@
+pyqt5
+pytsk3
+pyewf
