@@ -89,10 +89,14 @@ pip install -r requirements.txt
 python vscexplorer.py
 ```
 
+## Acknowledgments & Credits
+- [Joachim Metz](https://www.linkedin.com/in/jbmetz/)
+For essential forensic libraries such as **libewf** and **libbde**.<br>
+These libraries form the foundation for E01, BitLocker, and other image handling capabilities in VSCExplorer.
 
-## 🙌 Acknowledgments
+## 🙌 Contributors
 
-- [Akhil Dara](https://www.linkedin.com/in/akhil-dara/)
+- [Akhil Dara](https://www.linkedin.com/in/akhil-dara/) 
 - [Jnana Ramakrishna](https://www.linkedin.com/in/jnana-ramakrishna/)
 <br>
 
