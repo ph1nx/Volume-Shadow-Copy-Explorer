@@ -22,7 +22,7 @@
 - 🕰️ Recover deleted or historical files with timestamp preservation
 - 📊 Perform timeline and artifact analysis over time-based snapshots
 - 💾 Export evidence while maintaining forensic integrity
-- `Supports Even Bitlocker Ecrypted Images`
+- `Supports Even Bitlocker Encrypted Images`
 
 ## ⭐ Preview of the Tool 
 ### Main Dashboard
@@ -77,9 +77,10 @@ During the installation, make sure to select the following workloads:
   - C++ build tools
   
 ### Core Dependencies
-pytsk3==20250729 
-libewf-python==20240506 
-libbde-python==20240502
+pytsk3==20250729<br> 
+libewf-python==20240506<br> 
+libbde-python==20240502<br>
+dfvfs
 
 
 ```bash
