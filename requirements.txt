@@ -1,3 +1,4 @@
 pytsk3==20250729 
 libewf-python==20240506 
 libbde-python==20240502
+PyQt5
