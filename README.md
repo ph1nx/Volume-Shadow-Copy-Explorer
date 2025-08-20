@@ -101,4 +101,4 @@ These libraries form the foundation for E01, BitLocker, and other image handling
 - [Jnana Ramakrishna](https://www.linkedin.com/in/jnana-ramakrishna/)
 <br>
 
-Additionally i want to special mention [Akhil Dara](https://www.linkedin.com/in/akhil-dara/) for the major contribution supporting `bitlocker encyrption` and  is the gamechanger in the volume shadow copy explorer.
+Additionally i want to special mention [Akhil Dara](https://www.linkedin.com/in/akhil-dara/) for the major contribution supporting `bitlocker encyrption` and  is the key diffrentiator in the volume shadow copy explorer.
