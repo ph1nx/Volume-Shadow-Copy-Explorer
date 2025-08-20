@@ -1,6 +1,6 @@
 <div align="center">
   <h1>🧭 Volume Shadow Copy Explorer (VSCExplorer)</h1>
-  <h3>Explore Volume Shadow Copies (VSCs) from E01 and RAW Forensic Images</h3>
+  <h3>Explore Volume Shadow Copies (VSCs) from E01 and RAW Forensic Images including BitLocker Images</h3>
 
   <p>
     <img src="https://img.shields.io/badge/forensics-VSC%20Analysis-blue?style=flat-square" />
