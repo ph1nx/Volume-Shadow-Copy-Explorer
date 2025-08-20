@@ -94,3 +94,6 @@ python vscexplorer.py
 
 - [Akhil Dara](https://www.linkedin.com/in/akhil-dara/)
 - [Jnana Ramakrishna](https://www.linkedin.com/in/jnana-ramakrishna/)
+<br>
+
+Additionally i want to special mention [Akhil Dara](https://www.linkedin.com/in/akhil-dara/) for the major contribution supporting `bitlocker encyrptin` and  is the gamechanger in the volume shadow copy explorer.
