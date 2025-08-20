@@ -25,9 +25,11 @@
 - `Supports Even Bitlocker Ecrypted Images`
 
 ## ⭐ Preview of the Tool 
+### Main Dashboard
 <img width="1392" height="609" alt="Screenshot 2025-08-20 012847" src="https://github.com/user-attachments/assets/07efe236-6e8e-46c5-b177-5f119f3179aa" />
 <br><br>
 
+### Bitlocker Decryption and Export UI 
 <img width="754" height="521" alt="Screenshot 2025-08-20 085119" src="https://github.com/user-attachments/assets/6ebcfe8f-65ef-484a-9814-2133f713f442" />
 
 
