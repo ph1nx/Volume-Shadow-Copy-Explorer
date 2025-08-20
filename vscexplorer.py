@@ -2277,7 +2277,7 @@ class ForensicExplorerMainWindow(QMainWindow):
         """Create properly aligned path display with enhanced export buttons"""
         # Container (outer border with increased size)
         path_widget = QWidget()
-        path_widget.setFixedHeight(60)  # Increased for better spacing
+        path_widget.setFixedHeight(80)  # Increased for better spacing
         path_widget.setStyleSheet("""
             QWidget {
                 background-color: #e8f4fd;
@@ -2331,7 +2331,7 @@ class ForensicExplorerMainWindow(QMainWindow):
 
         # Right: Export buttons panel with enhanced styling
         buttons_panel = QWidget()
-        buttons_panel.setFixedHeight(40)
+        buttons_panel.setFixedHeight(60)
         buttons_panel.setMaximumWidth(340)  # Increased width
         buttons_panel.setStyleSheet("""
             QWidget {
@@ -2342,7 +2342,7 @@ class ForensicExplorerMainWindow(QMainWindow):
         """)
 
         buttons_layout = QHBoxLayout(buttons_panel)
-        buttons_layout.setContentsMargins(12, 6, 12, 6)  # Better padding
+        buttons_layout.setContentsMargins(12, 0, 12, 6)  # Better padding
         buttons_layout.setSpacing(10)
         buttons_layout.setAlignment(Qt.AlignVCenter)
 
