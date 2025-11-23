@@ -1218,10 +1218,13 @@ class ForensicExportWorker(QThread):
             file_name = file_data['name']
             
             # Sanitize filename for filesystem
-            safe_filename = re.sub(r'[<>:"/\\|?*]', '_', file_name)
-            
+            safe_filename = self._sanitize_name(file_name)
+            relative_dir = file_data.get('relative_dir')
+            export_dir = os.path.join(self.export_path, relative_dir) if relative_dir else self.export_path
+            os.makedirs(export_dir, exist_ok=True)
+
             file_obj = self.fs_info.open(path=file_path)
-            export_file_path = os.path.join(self.export_path, safe_filename)
+            export_file_path = os.path.join(export_dir, safe_filename)
             
             # Initialize hash calculators if needed
             hash_calculators = {}
@@ -1285,19 +1288,45 @@ class ForensicExportWorker(QThread):
     def _export_directory_forensic(self, dir_data):
         """Export a directory preserving all metadata"""
         try:
-            dir_name = dir_data['name']
-            safe_dirname = re.sub(r'[<>:"/\\|?*]', '_', dir_name)
-            export_dir_path = os.path.join(self.export_path, safe_dirname)
-            
+            safe_dirname = self._sanitize_name(dir_data['name'])
+            current_relative_dir = dir_data.get('relative_dir')
+            relative_dir = os.path.join(current_relative_dir, safe_dirname) if current_relative_dir else safe_dirname
+            export_dir_path = os.path.join(self.export_path, relative_dir)
+
             os.makedirs(export_dir_path, exist_ok=True)
-            
+
             # Preserve directory timestamps
             self._preserve_timestamps(export_dir_path, dir_data)
-            
+
             # Add to export records
             if self.options.get('generate_csv', False):
                 self._add_export_record(dir_data, True)
-            
+
+            with QMutexLocker(self.mutex):
+                if self.should_stop:
+                    return False
+
+            directory = self.fs_info.open_dir(path=dir_data['path'])
+
+            for entry in directory:
+                if entry.info.name.name in [b'.', b'..']:
+                    continue
+                if not entry.info.meta:
+                    continue
+
+                child_data = self._build_entry_data(entry, dir_data['path'])
+                if not child_data:
+                    continue
+
+                child_data['relative_dir'] = relative_dir
+
+                if child_data['is_directory']:
+                    if not self._export_directory_forensic(child_data):
+                        return False
+                else:
+                    if not self._export_file_forensic(child_data):
+                        return False
+
             return True
             
         except Exception as e:
@@ -1305,6 +1334,32 @@ class ForensicExportWorker(QThread):
             if self.options.get('generate_csv', False):
                 self._add_export_record(dir_data, False, str(e))
             return False
+
+    def _build_entry_data(self, entry, parent_path):
+        try:
+            filename = entry.info.name.name.decode('utf-8', errors='replace')
+            entry_path = os.path.join(parent_path, filename).replace('\\', '/')
+            is_directory = entry.info.meta.type == pytsk3.TSK_FS_META_TYPE_DIR
+            size = entry.info.meta.size if entry.info.meta.size else 0
+
+            def _convert_ts(value):
+                return datetime.datetime.fromtimestamp(value) if value else None
+
+            return {
+                'name': filename,
+                'path': entry_path,
+                'is_directory': is_directory,
+                'size': size,
+                'modified': _convert_ts(entry.info.meta.mtime),
+                'created': _convert_ts(entry.info.meta.crtime),
+                'accessed': _convert_ts(entry.info.meta.atime)
+            }
+        except Exception as e:
+            logger.debug(f"Failed to build entry data for {parent_path}: {e}")
+            return None
+
+    def _sanitize_name(self, name):
+        return re.sub(r'[<>:"/\\|?*]', '_', name)
 
     def _preserve_timestamps(self, file_path, file_data):
         """Preserve MACB timestamps forensically"""
@@ -2004,6 +2059,8 @@ class ForensicExplorerMainWindow(QMainWindow):
         """Initialize improved UI with proper alignment and visibility"""
         self.setWindowTitle("VSC Explorer v1.0")
         self.setGeometry(100, 100, 1400, 900)
+        self.setFont(QFont("Segoe UI", 10))
+        self.apply_classic_palette()
         
         # Set window icon if available
         if os.path.exists("logo.png"):
@@ -2012,28 +2069,29 @@ class ForensicExplorerMainWindow(QMainWindow):
         # Improved stylesheet with proper alignment fixes
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f5f5f5;
+                background-color: #dfe3eb;
             }
             QWidget {
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 11px;
+                font-family: 'Segoe UI', 'Tahoma', sans-serif;
+                font-size: 10pt;
+                color: #1f2933;
             }
             QComboBox {
-                background-color: white;
-                border: 2px solid #ddd;
-                border-radius: 6px;
-                padding: 6px;
-                min-height: 20px;
-                color: #333;
-                font-weight: bold;
-                font-size: 11px;
+                background-color: #f8f9fb;
+                border: 1px solid #c3cad7;
+                border-radius: 4px;
+                padding: 6px 10px;
+                min-height: 22px;
+                color: #1f2933;
+                font-weight: 600;
+                font-size: 10pt;
             }
             QComboBox:focus {
-                border-color: #4CAF50;
+                border-color: #4a6fa5;
             }
             QComboBox::drop-down {
                 border: none;
-                width: 20px;
+                width: 18px;
             }
             QComboBox::down-arrow {
                 image: none;
@@ -2042,99 +2100,100 @@ class ForensicExplorerMainWindow(QMainWindow):
                 height: 12px;
             }
             QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
+                background-color: #eef1f6;
+                color: #1f2933;
+                border: 1px solid #b7becd;
                 padding: 8px 14px;
-                border-radius: 6px;
-                font-weight: bold;
-                min-width: 80px;
-                font-size: 12px;
-                min-height: 28px;
+                border-radius: 4px;
+                font-weight: 600;
+                min-width: 92px;
+                font-size: 10pt;
+                min-height: 30px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: #f7f9fd;
             }
             QPushButton:pressed {
-                background-color: #3e8e41;
+                background-color: #d9dee7;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
+                background-color: #f2f4f7;
+                color: #9aa4b2;
+                border-color: #d8dfe9;
             }
             QTreeWidget {
                 background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                font-size: 11px;
+                border: 1px solid #cdd3de;
+                border-radius: 4px;
+                font-size: 10pt;
             }
             QTreeWidget::item {
-                padding: 3px;
-                border-bottom: 1px solid #f0f0f0;
+                padding: 4px 6px;
+                border-bottom: 1px solid #eef1f6;
                 min-height: 20px;
             }
             QTreeWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
+                background-color: #c7ddf5;
+                color: #1c3f6c;
             }
             QTableWidget {
                 background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                gridline-color: #f0f0f0;
-                font-size: 11px;
+                border: 1px solid #cdd3de;
+                border-radius: 4px;
+                gridline-color: #e1e5ed;
+                font-size: 10pt;
             }
             QTableWidget::item {
-                padding: 4px 6px;
-                border-bottom: 1px solid #f0f0f0;
-                min-height: 18px;
-            }
-            QTableWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
-            }
-            QHeaderView::section {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                padding: 6px;
-                font-weight: bold;
-                color: #495057;
-                font-size: 11px;
+                padding: 4px 8px;
+                border-bottom: 1px solid #eef1f6;
                 min-height: 20px;
             }
+            QTableWidget::item:selected {
+                background-color: #c7ddf5;
+                color: #1c3f6c;
+            }
+            QHeaderView::section {
+                background-color: #eaedf2;
+                border: 1px solid #cdd3de;
+                padding: 6px 10px;
+                font-weight: 600;
+                color: #39404a;
+                font-size: 10pt;
+                min-height: 22px;
+            }
             QProgressBar {
-                border: 1px solid #ddd;
-                border-radius: 6px;
+                border: 1px solid #cdd3de;
+                border-radius: 4px;
                 text-align: center;
-                background-color: #f0f0f0;
-                font-size: 10px;
-                min-height: 16px;
+                background-color: #eef1f6;
+                font-size: 9pt;
+                min-height: 18px;
             }
             QProgressBar::chunk {
-                background-color: #4CAF50;
-                border-radius: 5px;
+                background-color: #4a6fa5;
+                border-radius: 3px;
             }
             QStatusBar {
-                background-color: #f8f9fa;
-                border-top: 1px solid #dee2e6;
-                color: #495057;
-                font-size: 11px;
+                background-color: #e6e9ef;
+                border-top: 1px solid #c7ccd6;
+                color: #39404a;
+                font-size: 10pt;
                 min-height: 24px;
             }
             QLabel {
-                font-size: 11px;
-                padding: 2px;
+                font-size: 10pt;
+                padding: 2px 0;
             }
             QLineEdit {
-                padding: 6px;
-                border: 2px solid #ddd;
-                border-radius: 6px;
-                font-size: 11px;
+                padding: 6px 10px;
+                border: 1px solid #c3cad7;
+                border-radius: 4px;
+                font-size: 10pt;
                 background-color: white;
-                min-height: 18px;
+                min-height: 22px;
             }
             QLineEdit:focus {
-                border-color: #4CAF50;
+                border-color: #4a6fa5;
             }
         """)
 
@@ -2159,6 +2218,25 @@ class ForensicExplorerMainWindow(QMainWindow):
         # Create status bar
         self.create_status_bar()
 
+    def apply_classic_palette(self):
+        app = QApplication.instance()
+        if not app:
+            return
+        app.setStyle(QStyleFactory.create("Fusion"))
+        palette = app.palette()
+        palette.setColor(QPalette.Window, QColor(223, 227, 235))
+        palette.setColor(QPalette.WindowText, QColor(31, 41, 51))
+        palette.setColor(QPalette.Base, QColor(248, 250, 252))
+        palette.setColor(QPalette.AlternateBase, QColor(237, 240, 246))
+        palette.setColor(QPalette.ToolTipBase, Qt.white)
+        palette.setColor(QPalette.ToolTipText, QColor(31, 41, 51))
+        palette.setColor(QPalette.Text, QColor(31, 41, 51))
+        palette.setColor(QPalette.Button, QColor(233, 235, 241))
+        palette.setColor(QPalette.ButtonText, QColor(31, 41, 51))
+        palette.setColor(QPalette.Highlight, QColor(71, 120, 174))
+        palette.setColor(QPalette.HighlightedText, Qt.white)
+        app.setPalette(palette)
+
     def create_toolbar(self, parent_layout):
         """Create properly aligned toolbar"""
         # Toolbar container with fixed height
@@ -2166,9 +2244,9 @@ class ForensicExplorerMainWindow(QMainWindow):
         toolbar_widget.setFixedHeight(80)  # Increased height for better alignment
         toolbar_widget.setStyleSheet("""
             QWidget {
-                background-color: white;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                background-color: #eef1f6;
+                border: 1px solid #c3cad7;
+                border-radius: 6px;
             }
         """)
         
@@ -2178,17 +2256,20 @@ class ForensicExplorerMainWindow(QMainWindow):
         toolbar_layout.setSpacing(15)
 
         # Open Image button
-        self.open_btn = QPushButton("📁 Open Image")
-        self.open_btn.setFixedSize(130, 45)
+        self.open_btn = QPushButton("Open Image")
+        self.open_btn.setFixedSize(150, 45)
         self.open_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2196F3;
-                font-size: 13px;
-                font-weight: bold;
-                padding: 12px 16px;
+                background-color: #2f6fab;
+                color: white;
+                font-size: 10pt;
+                font-weight: 600;
+                padding: 10px 18px;
+                border: none;
+                border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #1976D2;
+                background-color: #265987;
             }
         """)
         self.open_btn.clicked.connect(self.open_image)
@@ -2206,14 +2287,14 @@ class ForensicExplorerMainWindow(QMainWindow):
         partition_layout = QVBoxLayout()
         partition_layout.setSpacing(5)
         
-        partition_label = QLabel("🗂️ Partition:")
+        partition_label = QLabel("Partition:")
         partition_label.setFixedHeight(20)
         partition_label.setStyleSheet("""
             QLabel {
                 font-weight: bold;
-                font-size: 12px;
-                color: #333;
-                padding: 2px 0px;
+                font-size: 10pt;
+                color: #1f2933;
+                padding: 2px 0;
             }
         """)
 
@@ -2228,7 +2309,7 @@ class ForensicExplorerMainWindow(QMainWindow):
         toolbar_layout.addLayout(partition_layout)
 
         # BitLocker unlock button
-        self.unlock_bitlocker_btn = QPushButton("🔒 Unlock")
+        self.unlock_bitlocker_btn = QPushButton("Unlock")
         self.unlock_bitlocker_btn.setFixedSize(120, 45)
         self.unlock_bitlocker_btn.clicked.connect(self.unlock_bitlocker)
         self.unlock_bitlocker_btn.setEnabled(False)
@@ -2242,20 +2323,23 @@ class ForensicExplorerMainWindow(QMainWindow):
         toolbar_layout.addWidget(self.vss_combo)
 
         # Load filesystem button
-        self.load_fs_btn = QPushButton("📁 Load FS")
-        self.load_fs_btn.setFixedSize(120, 45)
+        self.load_fs_btn = QPushButton("Load File System")
+        # self.load_fs_btn.setFixedSize(160, 45)
+        self.load_fs_btn.setFixedSize(210, 45)
         self.load_fs_btn.clicked.connect(self.load_filesystem)
         self.load_fs_btn.setEnabled(False)
         self.load_fs_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
+                background-color: #2f6fab;
                 color: white;
-                font-size: 13px;
-                font-weight: bold;
-                padding: 12px 16px;
+                font-size: 10pt;
+                font-weight: 600;
+                padding: 10px 18px;
+                border: none;
+                border-radius: 4px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: #265987;
             }
             QPushButton:disabled {
                 background-color: #cccccc;
@@ -2280,9 +2364,9 @@ class ForensicExplorerMainWindow(QMainWindow):
         path_widget.setFixedHeight(80)  # Increased for better spacing
         path_widget.setStyleSheet("""
             QWidget {
-                background-color: #e8f4fd;
-                border: 2px solid #b3d9ff;  /* Increased border width */
-                border-radius: 8px;         /* Increased radius */
+                background-color: #e7eaef;
+                border: 1px solid #c3cad7;
+                border-radius: 6px;
             }
         """)
 
@@ -2297,15 +2381,16 @@ class ForensicExplorerMainWindow(QMainWindow):
         location_layout.setSpacing(10)
         location_layout.setAlignment(Qt.AlignVCenter)
 
-        location_label = QLabel("📍 Location:")
+        location_label = QLabel("Location:")
         location_label.setFixedHeight(32)
         location_label.setStyleSheet("""
             QLabel {
                 font-weight: bold;
                 color: #333333;
-                font-size: 12px;
+                font-size: 10pt;
             }
         """)
+
         location_layout.addWidget(location_label)
 
         self.path_label = QLineEdit("/")
@@ -2314,14 +2399,14 @@ class ForensicExplorerMainWindow(QMainWindow):
         self.path_label.setMinimumWidth(280)
         self.path_label.setStyleSheet("""
             QLineEdit {
-                font-family: 'Courier New', monospace;
-                font-weight: bold;
-                color: #1976d2;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-weight: 600;
+                color: #214972;
                 background-color: white;
-                border: 1px solid #ddd;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 12px;
+                border: 1px solid #c3cad7;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 10pt;
             }
         """)
         location_layout.addWidget(self.path_label, 1)
@@ -2335,9 +2420,9 @@ class ForensicExplorerMainWindow(QMainWindow):
         buttons_panel.setMaximumWidth(340)  # Increased width
         buttons_panel.setStyleSheet("""
             QWidget {
-                background-color: #dfeffd;
-                border: 2px solid #c5defa;  /* Increased border */
-                border-radius: 8px;         /* Increased radius */
+                background-color: #f0f2f7;
+                border: 1px solid #c3cad7;
+                border-radius: 6px;
             }
         """)
 
@@ -2347,28 +2432,28 @@ class ForensicExplorerMainWindow(QMainWindow):
         buttons_layout.setAlignment(Qt.AlignVCenter)
 
         # Export Selected with improved styling
-        self.export_selected_btn = QPushButton("📤 Export Selected")
+        self.export_selected_btn = QPushButton("Export Selected")
         self.export_selected_btn.setFixedHeight(32)
         self.export_selected_btn.setMinimumWidth(155)
         self.export_selected_btn.clicked.connect(self.export_selected_files)
         self.export_selected_btn.setEnabled(False)
         self.export_selected_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
+                background-color: #2f6fab;
                 color: white;
-                font-size: 11px;
-                font-weight: bold;
+                font-size: 10pt;
+                font-weight: 600;
                 padding: 6px 14px;
-                border-radius: 6px;
+                border-radius: 4px;
                 border: none;
             }
-            QPushButton:hover { background-color: #45a049; }
-            QPushButton:disabled { background-color: #cccccc; color: #666666; }
+            QPushButton:hover { background-color: #265987; }
+            QPushButton:disabled { background-color: #b9c2d0; color: #f5f7fa; }
         """)
         buttons_layout.addWidget(self.export_selected_btn)
 
         # Export All with improved styling
-        self.export_all_btn = QPushButton("📦 Export All")
+        self.export_all_btn = QPushButton("Export All")
         self.export_all_btn.setFixedHeight(32)
         self.export_all_btn.setMinimumWidth(125)
         self.export_all_btn.clicked.connect(self.export_all_files)
@@ -2407,17 +2492,17 @@ class ForensicExplorerMainWindow(QMainWindow):
         left_layout.setSpacing(4)
 
         # Tree header
-        tree_header = QLabel("🗂️ Directory Structure")
+        tree_header = QLabel("Directory Structure")
         tree_header.setStyleSheet("""
             QLabel {
-                background-color: #f8f9fa;
+                background-color: #eaedf2;
                 padding: 8px;
-                font-weight: bold;
-                border: 1px solid #dee2e6;
-                border-radius: 6px 6px 0 0;
-                color: #495057;
-                font-size: 12px;
-                min-height: 16px;
+                font-weight: 600;
+                border: 1px solid #cdd3de;
+                border-radius: 4px 4px 0 0;
+                color: #1f2933;
+                font-size: 10pt;
+                min-height: 18px;
             }
         """)
         left_layout.addWidget(tree_header)
@@ -2442,17 +2527,17 @@ class ForensicExplorerMainWindow(QMainWindow):
         right_layout.setSpacing(4)
 
         # File view header
-        file_header = QLabel("📋 File Details")
+        file_header = QLabel("File Details")
         file_header.setStyleSheet("""
             QLabel {
-                background-color: #f8f9fa;
+                background-color: #eaedf2;
                 padding: 8px;
-                font-weight: bold;
-                border: 1px solid #dee2e6;
-                border-radius: 6px 6px 0 0;
-                color: #495057;
-                font-size: 12px;
-                min-height: 16px;
+                font-weight: 600;
+                border: 1px solid #cdd3de;
+                border-radius: 4px 4px 0 0;
+                color: #1f2933;
+                font-size: 10pt;
+                min-height: 18px;
             }
         """)
         right_layout.addWidget(file_header)
@@ -2489,7 +2574,7 @@ class ForensicExplorerMainWindow(QMainWindow):
         self.file_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         # Set row height
-        self.file_table.verticalHeader().setDefaultSectionSize(24)
+        self.file_table.verticalHeader().setDefaultSectionSize(28)
 
         right_layout.addWidget(self.file_table)
         main_splitter.addWidget(right_panel)
@@ -2504,8 +2589,8 @@ class ForensicExplorerMainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
-        self.status_label = QLabel("🔍 Ready - Open a forensic image to begin analysis")
-        self.status_label.setStyleSheet("font-weight: bold; color: #495057; font-size: 11px; padding: 2px;")
+        self.status_label = QLabel("Ready - Open a forensic image to begin analysis")
+        self.status_label.setStyleSheet("font-weight: 600; color: #1f2933; font-size: 10pt; padding: 2px;")
         self.status_bar.addWidget(self.status_label)
 
     def update_path_display(self, path):
